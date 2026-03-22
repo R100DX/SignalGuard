@@ -18,7 +18,7 @@ SignalGuard adds a visual CCI/ACI interference monitor to the **SIGNAL** panel o
 
 ### Requirements
 
-- [FM-DX Webserver](https://github.com/NoobishSVK/fm-dx-webserver) v1.2 or later
+- [FM-DX Webserver](https://github.com/NoobishSVK/fm-dx-webserver) v1.4 or later
 - A tuner that reports CCI/ACI values (TEF668x or XDR-F1HD with compatible firmware)
 
 ### Compatibility
