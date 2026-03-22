@@ -13,7 +13,6 @@
 
     // ######################################################
 
-    // ── Peak-hold ring buffer ──────────────────────────
     const PEAK_SAMPLES = 8;
 
     function makePeakBuf() {
@@ -62,15 +61,21 @@
         .cci-aci-fill {
             height: 100%;
             width: 0%;
-            border-radius: 1px;
             transition: width 0.15s linear;
         }
 
+        /* CCI: rounded top-left corner (outer container corner) */
         .cci-fill      { background: #f97e7e; }
         .cci-fill.high { background: #de4040; }
 
+        /* ACI: rounded top-right corner – fill grows from left,
+           so top-right is only visible when fill = 100%,
+           therefore we round the trough instead of the fill */
         .aci-fill      { background: #f9bf7e; }
         .aci-fill.high { background: #de9340; }
+
+        .cci-trough { border-radius: 15px 0 0 0 !important; overflow: hidden; }
+        .aci-trough { border-radius: 0 15px 0 0 !important; overflow: hidden; }
 
         .cci-aci-label {
             position: absolute;
@@ -142,6 +147,10 @@
             .cci-aci-tooltip {
                 display: none;
             }
+            .cci-trough,
+            .aci-trough {
+                border-radius: 2px !important;
+            }
         }
     `;
 
@@ -150,10 +159,10 @@
     document.head.appendChild(styleEl);
 
     // ── Widget HTML ──────────────────────────────────────────────────────────
-    function buildBlock(fillClass, fillId, labelId, labelText, tooltipText) {
+    function buildBlock(fillClass, fillId, labelId, labelText, tooltipText, troughClass) {
         return [
             '<div class="cci-aci-block">',
-              '<div class="cci-aci-trough">',
+              '<div class="cci-aci-trough' + (troughClass ? ' ' + troughClass : '') + '">',
                 '<div class="cci-aci-fill ' + fillClass + '" id="' + fillId + '"></div>',
               '</div>',
               '<span class="cci-aci-label unknown" id="' + labelId + '">' + labelText + '</span>',
@@ -166,8 +175,8 @@
         const wrap = document.createElement('div');
         wrap.id = 'cci-aci-container';
         wrap.innerHTML =
-            buildBlock('cci-fill', 'cci-fill', 'cci-label', 'CCI: ?', 'Co-Channel Interference') +
-            buildBlock('aci-fill', 'aci-fill', 'aci-label', 'ACI: ?', 'Adjacent Channel Interference');
+            buildBlock('cci-fill', 'cci-fill', 'cci-label', 'CCI: ?', 'Co-Channel Interference', 'cci-trough') +
+            buildBlock('aci-fill', 'aci-fill', 'aci-label', 'ACI: ?', 'Adjacent Channel Interference', 'aci-trough');
         return wrap;
     }
 
@@ -183,7 +192,7 @@
 
         const isMobile = window.innerWidth <= 768;
 
-        if (!ENABLE_ON_MOBILE && isMobile) return true; // Disabled on mobile – do not mount
+        if (!ENABLE_ON_MOBILE && isMobile) return true; // disabled on mobile – do not mount
 
         if (isMobile) {
             const textBig = panel.querySelector('.text-big');
