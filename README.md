@@ -9,8 +9,6 @@
 
 SignalGuard adds a visual CCI/ACI interference monitor to the **SIGNAL** panel of [FM-DX Webserver](https://github.com/NoobishSVK/fm-dx-webserver). It displays two horizontal progress bars - one for Co-Channel Interference and one for Adjacent Channel Interference - directly above the SIGNAL heading on desktop and below the signal readout on mobile.
 
-The data is read from the tuner's raw signal stream (`sigRaw`) already present in the main WebSocket - no additional connections or server-side processing is required.
-
 **Features:**
 - CCI and ACI progress bars side by side, mirroring the xdr-gtk layout
 - Peak-hold indicator (8-sample window, ~0.7s) displayed as an overlay label on each bar
