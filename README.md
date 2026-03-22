@@ -1,9 +1,9 @@
 
-SignalGuard
+<div align="center">SignalGuard
 
 **FM-DX Webserver plugin** — CCI and ACI interference indicators, inspired by [xdr-gtk](https://github.com/kkonradpl/xdr-gtk).
 
-#<div align="center"><img width="346" height="148" alt="signalg" src="https://github.com/user-attachments/assets/385cd685-8961-4d97-815b-bf26af09161f" /></div>
+<img width="346" height="148" alt="signalg" src="https://github.com/user-attachments/assets/385cd685-8961-4d97-815b-bf26af09161f" /></div>
 
 ### What is it?
 
