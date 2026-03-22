@@ -100,7 +100,8 @@
             font-weight: normal;
         }
 
-        h2.signal-heading {
+        /* Target only the SIGNAL panel heading, not PI CODE (same class, different panel) */
+        #freq-container + div h2.signal-heading {
             font-size: 20px;
             margin-top: -2px;
         }
