@@ -2,7 +2,7 @@ const pluginsApi = require('../server/plugins_api');
 const dataHandler = require('../server/datahandler');
 const { logInfo } = require('../server/console');
 
-const PEAK_SAMPLES = 24;
+const PEAK_SAMPLES = 8;
 
 function makePeakBuf() {
     return { buf: new Array(PEAK_SAMPLES).fill(-1), pos: 0 };
@@ -11,7 +11,6 @@ function makePeakBuf() {
 function pushSample(pb, value) {
     pb.pos = (pb.pos + 1) % PEAK_SAMPLES;
     pb.buf[pb.pos] = value;
-    if (value === -1) pb.buf.fill(-1);
     let peak = -1;
     for (let i = 0; i < PEAK_SAMPLES; i++) {
         if (pb.buf[i] > peak) peak = pb.buf[i];
@@ -35,32 +34,29 @@ function broadcast(cciVal, aciVal, cciPeak, aciPeak) {
     });
 }
 
+// Poll dataToSend.sigRaw instead of using Object.defineProperty.
+// Avoids: TypeError on redefinition by another plugin, JSON pollution, setter overhead.
 let lastSigRaw = '';
-Object.defineProperty(dataHandler.dataToSend, 'sigRaw', {
-    get() { return this._sigRaw; },
-    set(raw) {
-        this._sigRaw = raw;
-        if (!raw || raw === lastSigRaw) return;
-        lastSigRaw = raw;
 
-        const comma1 = raw.indexOf(',');
-        if (comma1 === -1) return;
-        const comma2 = raw.indexOf(',', comma1 + 1);
+setInterval(() => {
+    const raw = dataHandler.dataToSend.sigRaw;
+    if (!raw || raw === lastSigRaw) return;
+    lastSigRaw = raw;
 
-        const cciRaw = +raw.slice(comma1 + 1, comma2 === -1 ? undefined : comma2) | 0;
-        const aciRaw = comma2 === -1 ? -1 : (+raw.slice(comma2 + 1) | 0);
+    const comma1 = raw.indexOf(',');
+    if (comma1 === -1) return;
+    const comma2 = raw.indexOf(',', comma1 + 1);
 
-        const cciVal = (cciRaw >= 0 && cciRaw <= 100) ? cciRaw : -1;
-        const aciVal = (aciRaw >= 0 && aciRaw <= 100) ? aciRaw : -1;
+    const cciParsed = parseInt(raw.slice(comma1 + 1, comma2 === -1 ? undefined : comma2), 10);
+    const aciParsed = comma2 === -1 ? NaN : parseInt(raw.slice(comma2 + 1), 10);
 
-        const cciPeak = pushSample(peakCci, cciVal);
-        const aciPeak = pushSample(peakAci, aciVal);
+    const cciVal = (cciParsed >= 0 && cciParsed <= 100) ? cciParsed : -1;
+    const aciVal = (aciParsed >= 0 && aciParsed <= 100) ? aciParsed : -1;
 
-        broadcast(cciVal, aciVal, cciPeak, aciPeak);
-    },
-    configurable: true,
-    enumerable: true,
-});
-dataHandler.dataToSend._sigRaw = dataHandler.dataToSend.sigRaw || '';
+    const cciPeak = pushSample(peakCci, cciVal);
+    const aciPeak = pushSample(peakAci, aciVal);
+
+    broadcast(cciVal, aciVal, cciPeak, aciPeak);
+}, 80); // ~12 Hz, matching tuner signal rate
 
 logInfo('[SignalGuard] CCI/ACI server plugin loaded.');
