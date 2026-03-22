@@ -1,12 +1,14 @@
+// https://github.com/R100DX/SignalGuard //
+
 (function () {
     'use strict';
 
-    // #################### KONFIGURACJA ####################
+    // #################### CONFIGURATION ####################
 
-    // Wyłącz tooltip po najechaniu kursorem (desktop)
+    // Disable tooltip on hover (desktop)
     const ENABLE_TOOLTIPS = true;
 
-    // Wyłącz wyświetlanie UI na telefonach (max-width: 768px)
+    // Disable UI display on mobile devices (max-width: 768px)
     const ENABLE_ON_MOBILE = true;
 
     // ######################################################
@@ -147,7 +149,7 @@
     styleEl.textContent = css;
     document.head.appendChild(styleEl);
 
-    // ── HTML widgetu ──────────────────────────────────────────────────────────
+    // ── Widget HTML ──────────────────────────────────────────────────────────
     function buildBlock(fillClass, fillId, labelId, labelText, tooltipText) {
         return [
             '<div class="cci-aci-block">',
@@ -181,7 +183,7 @@
 
         const isMobile = window.innerWidth <= 768;
 
-        if (!ENABLE_ON_MOBILE && isMobile) return true; // wyłączone na mobile – nie montuj
+        if (!ENABLE_ON_MOBILE && isMobile) return true; // Disabled on mobile – do not mount
 
         if (isMobile) {
             const textBig = panel.querySelector('.text-big');
@@ -210,7 +212,7 @@
         tryMount();
     }
 
-    // ── Aktualizacja UI ───────────────────────────────────────────────────────
+    // ── UI Update ───────────────────────────────────────────────────────
     const HIGH = 50;
 
     function updateBar(fillId, labelId, prefix, cur, peak) {
@@ -231,7 +233,7 @@
         }
     }
 
-    // ── Parsowanie sigRaw z głównego window.socket ────────────────────────────
+    // ── Parsing sigRaw from main window.socket ────────────────────────────
     let lastFreq = null;
 
     function onMessage(event) {
