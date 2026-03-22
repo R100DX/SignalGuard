@@ -22,7 +22,6 @@
     function pushSample(pb, value) {
         pb.pos = (pb.pos + 1) % PEAK_SAMPLES;
         pb.buf[pb.pos] = value;
-        if (value === -1) pb.buf.fill(-1);
         let peak = -1;
         for (let i = 0; i < pb.buf.length; i++) {
             if (pb.buf[i] > peak) peak = pb.buf[i];
@@ -275,12 +274,19 @@
         updateBar('aci-fill', 'aci-label', 'ACI', aci, pushSample(peakAci, aci));
     }
 
+    // Store reference to the socket instance we attached to.
+    // If window.socket is replaced with a new object (reconnect), we reattach.
+    let attachedSocket = null;
+
     function attachSocket() {
-        if (window.socket && window.socket.addEventListener) {
+        if (window.socket && window.socket !== attachedSocket) {
+            if (attachedSocket) {
+                attachedSocket.removeEventListener('message', onMessage);
+            }
             window.socket.addEventListener('message', onMessage);
-            return;
+            attachedSocket = window.socket;
         }
-        setTimeout(attachSocket, 200);
+        setTimeout(attachSocket, 1000);
     }
     attachSocket();
 
