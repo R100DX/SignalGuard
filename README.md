@@ -1,7 +1,7 @@
 
 <div align="center">
 **FM-DX Webserver plugin** - CCI and ACI interference indicators, inspired by [xdr-gtk](https://github.com/kkonradpl/xdr-gtk).
-
+<br/>
 <img width="350" height="148" alt="signalg" src="https://github.com/user-attachments/assets/5d1607ab-23ed-471b-a272-07ae8aacbc75" /></div>
 
 ### What is it?
