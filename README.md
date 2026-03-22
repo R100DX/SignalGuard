@@ -37,7 +37,7 @@ The data is read from the tuner's raw signal stream (`sigRaw`) already present i
 
 1. Copy the files into your FM-DX Webserver `plugins/` directory.
 
-2. Restart the webserver, go to **Settings → Plugins** and enable **SignalGuard**.
+2. Restart the webserver, go to **Settings -> Plugins** and enable **SignalGuard**.
 
 3. Restart the webserver again.
 
