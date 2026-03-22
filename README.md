@@ -48,3 +48,5 @@ At the top of `SignalGuard/frontend.js`:
 ```js
 const ENABLE_TOOLTIPS  = true;  // false — disables hover tooltips on desktop
 const ENABLE_ON_MOBILE = true;  // false — hides the widget on mobile devices
+
+> **Note:** This plugin's code was developed with the assistance of AI.
