@@ -26,7 +26,7 @@ SignalGuard adds a visual CCI/ACI interference monitor to the **SIGNAL** panel o
 | Setup | CCI | ACI |
 |-------|-----|-----|
 | TEF668x headless + latest [FM-DX-Tuner](https://github.com/kkonradpl/FM-DX-Tuner) | ✅ | ✅ |
-| TEF6686 ESP32 ([PE5PVB](https://github.com/PE5PVB/TEF6686_ESP32)) | ✅ | ⚠️ unreliable |
+| TEF668x ESP32 ([PE5PVB](https://github.com/PE5PVB/TEF6686_ESP32)) | ✅ | ⚠️ unreliable |
 | XDR-F1HD | ✅ | ✅ |
 
 > **Note:** ACI values reported by PE5PVB TEF6686 ESP32 firmware are not reliable and should be treated as indicative only.
