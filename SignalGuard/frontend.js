@@ -1,4 +1,4 @@
-// https://github.com/R100DX/SignalGuard //
+// SignalGuard v1.2 https://github.com/R100DX/SignalGuard //
 
 (function () {
     'use strict';
@@ -10,6 +10,16 @@
 
     // Disable UI display on mobile devices (max-width: 768px)
     const ENABLE_ON_MOBILE = true;
+
+    // Show/hide the BW block entirely
+    const ENABLE_BW_BLOCK = true;
+
+    // Animate the BW fill width (like CCI/ACI) or show a static solid background
+    const ENABLE_BW_ANIMATION = true;
+
+    // Auto-BW ceiling used to scale the BW fill bar (0-100%).
+    // 236 kHz = widest Lithio *auto* filter step; 311 kHz is manual-only.
+    const MAX_BW_KHZ = 236;
 
     // ######################################################
 
@@ -75,6 +85,16 @@
 
         .cci-trough { border-radius: 15px 0 0 0 !important; overflow: hidden; }
         .aci-trough { border-radius: 0 15px 0 0 !important; overflow: hidden; }
+		
+        /* BW block: fixed/overridable width, not flex:1 like CCI/ACI.
+           Override --bw-block-width in your own CSS to resize it. */
+        .bw-block {
+            flex: 0 0 var(--bw-block-width, 85px);
+            width: var(--bw-block-width, 85px);
+        }
+
+        .bw-fill { background: rgb(47 110 76); }      
+        .bw-fill.no-anim { transition: none !important; }
 
         .cci-aci-label {
             position: absolute;
@@ -100,7 +120,7 @@
             font-weight: normal;
         }
 
-        /* Target only the SIGNAL panel heading, not PI CODE (same class, different panel) */
+        
         #freq-container + div h2.signal-heading {
             font-size: 20px;
             margin-top: -2px;
@@ -171,11 +191,25 @@
         ].join('');
     }
 
+    // BW block: same fill mechanism as CCI/ACI, own class for width + color
+    function buildBwBlock() {
+        return [
+            '<div class="cci-aci-block bw-block">',
+              '<div class="cci-aci-trough bw-trough">',
+                '<div class="cci-aci-fill bw-fill' + (ENABLE_BW_ANIMATION ? '' : ' no-anim') + '" id="bw-fill"></div>',
+              '</div>',
+              '<span class="cci-aci-label unknown" id="bw-label">BW: ?</span>',
+              (ENABLE_TOOLTIPS ? '<span class="cci-aci-tooltip">IF Bandwidth</span>' : ''),
+            '</div>'
+        ].join('');
+    }
+
     function buildWidget() {
         const wrap = document.createElement('div');
         wrap.id = 'cci-aci-container';
         wrap.innerHTML =
             buildBlock('cci-fill', 'cci-fill', 'cci-label', 'CCI: ?', 'Co-Channel Interference', 'cci-trough') +
+            (ENABLE_BW_BLOCK ? buildBwBlock() : '') +
             buildBlock('aci-fill', 'aci-fill', 'aci-label', 'ACI: ?', 'Adjacent Channel Interference', 'aci-trough');
         return wrap;
     }
@@ -242,6 +276,31 @@
         }
     }
 
+    // ── BW update: same shape as updateBar(), own scaling constant ─────────
+    function updateBw(bwVal) {
+        const fill  = document.getElementById('bw-fill');
+        const label = document.getElementById('bw-label');
+        if (!fill || !label) return;
+
+        if (bwVal < 0) {
+            fill.style.width = '0%';
+            label.textContent = 'BW: ?';
+            label.classList.add('unknown');
+            return;
+        }
+
+        if (ENABLE_BW_ANIMATION) {
+            const pct = Math.max(0, Math.min(100, (bwVal / MAX_BW_KHZ) * 100));
+            fill.style.width = pct + '%';
+        } else {
+            // Static mode: no proportional bar, just a solid filled block.
+            fill.style.width = '100%';
+        }
+
+        label.textContent = 'BW: ' + bwVal + ' kHz';
+        label.classList.remove('unknown');
+    }
+
     // ── Parsing sigRaw from main window.socket ────────────────────────────
     let lastFreq = null;
 
@@ -256,6 +315,7 @@
             lastFreq = freq;
             peakCci.buf.fill(-1);
             peakAci.buf.fill(-1);
+            if (ENABLE_BW_BLOCK) updateBw(-1);
         }
 
         if (!sigRaw) return;
@@ -273,6 +333,14 @@
 
         updateBar('cci-fill', 'cci-label', 'CCI', cci, pushSample(peakCci, cci));
         updateBar('aci-fill', 'aci-label', 'ACI', aci, pushSample(peakAci, aci));
+
+        // BW: independent 3rd comma, does not affect cci/aci parsing above in any way
+        if (ENABLE_BW_BLOCK) {
+            const comma3 = comma2 === -1 ? -1 : sigRaw.indexOf(',', comma2 + 1);
+            const bwParsed = comma3 === -1 ? NaN : parseInt(sigRaw.slice(comma3 + 1), 10);
+            const bw = (bwParsed >= 0) ? bwParsed : -1;
+            updateBw(bw);
+        }
     }
 
     // Store reference to the socket instance we attached to.
