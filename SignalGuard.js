@@ -1,6 +1,6 @@
 var pluginConfig = {
     name: 'SignalGuard',
-    version: '1.0',
+    version: '1.2',
     author: 'R100DX',
     frontEndPath: 'SignalGuard/frontend.js'
 };
