@@ -1,4 +1,4 @@
-// SignalGuard v1.2 https://github.com/R100DX/SignalGuard //
+// SignalGuard v1.3 https://github.com/R100DX/SignalGuard //
 
 (function () {
     'use strict';
