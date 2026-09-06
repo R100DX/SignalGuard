@@ -85,7 +85,7 @@
 
         .cci-trough { border-radius: 15px 0 0 0 !important; overflow: hidden; }
         .aci-trough { border-radius: 0 15px 0 0 !important; overflow: hidden; }
-		
+
         /* BW block: fixed/overridable width, not flex:1 like CCI/ACI.
            Override --bw-block-width in your own CSS to resize it. */
         .bw-block {
@@ -93,7 +93,7 @@
             width: var(--bw-block-width, 85px);
         }
 
-        .bw-fill { background: rgb(47 110 76); }      
+        .bw-fill { background: rgb(47 110 76); }
         .bw-fill.no-anim { transition: none !important; }
 
         .cci-aci-label {
@@ -120,7 +120,6 @@
             font-weight: normal;
         }
 
-        
         #freq-container + div h2.signal-heading {
             font-size: 20px;
             margin-top: -2px;
@@ -215,8 +214,19 @@
     }
 
     // ── Mount ─────────────────────────────────────────────────────────────────
+    // Tracks which layout (mobile/desktop) the widget was last mounted for,
+    // so a viewport change (resize, device rotation, devtools toggle) can
+    // trigger a remount instead of leaving the widget stuck in the old spot.
+    let mountedIsMobile = null;
+
     function mount() {
-        if (document.getElementById('cci-aci-container')) return true;
+        const isMobile = window.innerWidth <= 768;
+        const existing = document.getElementById('cci-aci-container');
+
+        if (existing) {
+            if (isMobile === mountedIsMobile) return true; // already correctly placed
+            existing.remove(); // viewport crossed the breakpoint - reposition below
+        }
 
         const signalHighest = document.getElementById('data-signal-highest');
         if (!signalHighest) return false;
@@ -224,9 +234,10 @@
         const panel = signalHighest.closest('.panel-33');
         if (!panel) return false;
 
-        const isMobile = window.innerWidth <= 768;
-
-        if (!ENABLE_ON_MOBILE && isMobile) return true; // disabled on mobile – do not mount
+        if (!ENABLE_ON_MOBILE && isMobile) {
+            mountedIsMobile = isMobile;
+            return true; // disabled on mobile – do not mount
+        }
 
         if (isMobile) {
             const textBig = panel.querySelector('.text-big');
@@ -238,6 +249,7 @@
             heading.insertAdjacentElement('beforebegin', buildWidget());
         }
 
+        mountedIsMobile = isMobile;
         return true;
     }
 
@@ -254,6 +266,14 @@
     } else {
         tryMount();
     }
+
+    // Re-evaluate placement whenever the viewport crosses the mobile/desktop
+    // breakpoint (window resize, orientation change, devtools device toggle).
+    let resizeTimer = null;
+    window.addEventListener('resize', function () {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(mount, 150);
+    });
 
     // ── UI Update ───────────────────────────────────────────────────────
     const HIGH = 50;
