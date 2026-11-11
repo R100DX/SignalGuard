@@ -1,24 +1,23 @@
-// SignalGuard v1.2 https://github.com/R100DX/SignalGuard //
+// SignalGuard v1.4 https://github.com/R100DX/SignalGuard //
 
 (function () {
     'use strict';
 
     // #################### CONFIGURATION ####################
 
-    // Disable tooltip on hover (desktop)
+    // Tooltips on hover (desktop)
     const ENABLE_TOOLTIPS = true;
 
-    // Disable UI display on mobile devices (max-width: 768px)
+    // Show on mobile (max-width: 768px)
     const ENABLE_ON_MOBILE = true;
 
-    // Show/hide the BW block entirely
+    // Show BW block
     const ENABLE_BW_BLOCK = true;
 
-    // Animate the BW fill width (like CCI/ACI) or show a static solid background
+    // Animated BW fill; false = static solid fill
     const ENABLE_BW_ANIMATION = true;
 
-    // Auto-BW ceiling used to scale the BW fill bar (0-100%).
-    // 236 kHz = widest Lithio *auto* filter step; 311 kHz is manual-only.
+    // BW value at 100% fill (236 kHz = widest auto filter)
     const MAX_BW_KHZ = 236;
 
     // ######################################################
@@ -42,7 +41,12 @@
     const peakCci = makePeakBuf();
     const peakAci = makePeakBuf();
 
-    // ── CSS ───────────────────────────────────────────────────────────────────
+    // Last values, restored after a widget rebuild
+    let hasReceivedData = false;
+    let lastCci = -1, lastCciPeak = -1;
+    let lastAci = -1, lastAciPeak = -1;
+    let lastBw  = -1;
+
     const css = `
         #cci-aci-container {
             display: flex;
@@ -73,27 +77,28 @@
             transition: width 0.15s linear;
         }
 
-        /* CCI: rounded top-left corner (outer container corner) */
         .cci-fill      { background: #f97e7e; }
         .cci-fill.high { background: #de4040; }
 
-        /* ACI: rounded top-right corner – fill grows from left,
-           so top-right is only visible when fill = 100%,
-           therefore we round the trough instead of the fill */
         .aci-fill      { background: #f9bf7e; }
         .aci-fill.high { background: #de9340; }
 
         .cci-trough { border-radius: 15px 0 0 0 !important; overflow: hidden; }
         .aci-trough { border-radius: 0 15px 0 0 !important; overflow: hidden; }
 
-        /* BW block: fixed/overridable width, not flex:1 like CCI/ACI.
-           Override --bw-block-width in your own CSS to resize it. */
+        /* BW width: override --bw-block-width */
         .bw-block {
             flex: 0 0 var(--bw-block-width, 85px);
             width: var(--bw-block-width, 85px);
         }
 
-        .bw-fill { background: rgb(47 110 76); }
+        /* CCI + BW only: equal widths */
+        .bw-block.bw-grow {
+            flex: 1;
+            width: auto;
+        }
+
+        .bw-fill { background: rgb(47 110 76); }      
         .bw-fill.no-anim { transition: none !important; }
 
         .cci-aci-label {
@@ -120,12 +125,12 @@
             font-weight: normal;
         }
 
+        
         #freq-container + div h2.signal-heading {
             font-size: 20px;
             margin-top: -2px;
         }
 
-        /* Tooltip */
         .cci-aci-tooltip {
             position: absolute;
             bottom: calc(100% + 6px);
@@ -158,6 +163,12 @@
             opacity: 1;
         }
 
+        /* Outer corners on first/last visible block */
+        @media only screen and (min-width: 769px) {
+            .cci-aci-trough.edge-left  { border-top-left-radius: 15px !important; }
+            .cci-aci-trough.edge-right { border-top-right-radius: 15px !important; }
+        }
+
         @media only screen and (max-width: 768px) {
             #cci-aci-container {
                 margin-bottom: 0;
@@ -177,7 +188,6 @@
     styleEl.textContent = css;
     document.head.appendChild(styleEl);
 
-    // ── Widget HTML ──────────────────────────────────────────────────────────
     function buildBlock(fillClass, fillId, labelId, labelText, tooltipText, troughClass) {
         return [
             '<div class="cci-aci-block">',
@@ -190,7 +200,6 @@
         ].join('');
     }
 
-    // BW block: same fill mechanism as CCI/ACI, own class for width + color
     function buildBwBlock() {
         return [
             '<div class="cci-aci-block bw-block">',
@@ -213,10 +222,6 @@
         return wrap;
     }
 
-    // ── Mount ─────────────────────────────────────────────────────────────────
-    // Tracks which layout (mobile/desktop) the widget was last mounted for,
-    // so a viewport change (resize, device rotation, devtools toggle) can
-    // trigger a remount instead of leaving the widget stuck in the old spot.
     let mountedIsMobile = null;
 
     function mount() {
@@ -224,8 +229,8 @@
         const existing = document.getElementById('cci-aci-container');
 
         if (existing) {
-            if (isMobile === mountedIsMobile) return true; // already correctly placed
-            existing.remove(); // viewport crossed the breakpoint - reposition below
+            if (isMobile === mountedIsMobile) return true;
+            existing.remove();
         }
 
         const signalHighest = document.getElementById('data-signal-highest');
@@ -236,7 +241,7 @@
 
         if (!ENABLE_ON_MOBILE && isMobile) {
             mountedIsMobile = isMobile;
-            return true; // disabled on mobile – do not mount
+            return true;
         }
 
         if (isMobile) {
@@ -250,6 +255,9 @@
         }
 
         mountedIsMobile = isMobile;
+
+        restoreLastState();
+
         return true;
     }
 
@@ -267,45 +275,86 @@
         tryMount();
     }
 
-    // Re-evaluate placement whenever the viewport crosses the mobile/desktop
-    // breakpoint (window resize, orientation change, devtools device toggle).
+    // Remount on mobile/desktop breakpoint change
     let resizeTimer = null;
     window.addEventListener('resize', function () {
         clearTimeout(resizeTimer);
         resizeTimer = setTimeout(mount, 150);
     });
 
-    // ── UI Update ───────────────────────────────────────────────────────
     const HIGH = 50;
 
-    function updateBar(fillId, labelId, prefix, cur, peak) {
+    function refreshEdgeRounding() {
+        const container = document.getElementById('cci-aci-container');
+        if (!container) return;
+
+        const visibleBlocks = Array.from(container.children).filter(function (el) {
+            return el.style.display !== 'none';
+        });
+
+        container.querySelectorAll('.cci-aci-trough').forEach(function (trough) {
+            trough.classList.remove('edge-left', 'edge-right');
+        });
+
+        if (visibleBlocks.length === 0) return;
+
+        const firstTrough = visibleBlocks[0].querySelector('.cci-aci-trough');
+        const lastTrough  = visibleBlocks[visibleBlocks.length - 1].querySelector('.cci-aci-trough');
+
+        if (firstTrough) firstTrough.classList.add('edge-left');
+        if (lastTrough)  lastTrough.classList.add('edge-right');
+
+        // CCI is always visible, so 2 visible incl. BW = CCI + BW
+        const bwBlock = container.querySelector('.bw-block');
+        if (bwBlock) {
+            const bwVisible = visibleBlocks.indexOf(bwBlock) !== -1;
+            bwBlock.classList.toggle('bw-grow', bwVisible && visibleBlocks.length === 2);
+        }
+    }
+
+    function restoreLastState() {
+        if (!hasReceivedData) return;
+
+        updateBar('cci-fill', 'cci-label', 'CCI', lastCci, lastCciPeak, false);
+        updateBar('aci-fill', 'aci-label', 'ACI', lastAci, lastAciPeak, true);
+        if (ENABLE_BW_BLOCK) updateBw(lastBw);
+    }
+
+    function updateBar(fillId, labelId, prefix, cur, peak, hideOnNoData) {
         const fill  = document.getElementById(fillId);
         const label = document.getElementById(labelId);
         if (!fill || !label) return;
+        const block = fill.parentElement.parentElement; // fill -> trough -> block
 
         if (cur < 0) {
             fill.style.width = '0%';
             fill.classList.remove('high');
             label.textContent = prefix + ': ?';
             label.classList.add('unknown');
+            if (hideOnNoData && block) block.style.display = 'none';
         } else {
             fill.style.width = (cur > 100 ? 100 : cur) + '%';
             fill.classList.toggle('high', cur >= HIGH);
             label.textContent = prefix + ': ' + (peak >= 0 ? peak + '%' : '?');
             label.classList.remove('unknown');
+            if (hideOnNoData && block) block.style.display = '';
         }
+
+        if (hideOnNoData) refreshEdgeRounding();
     }
 
-    // ── BW update: same shape as updateBar(), own scaling constant ─────────
     function updateBw(bwVal) {
         const fill  = document.getElementById('bw-fill');
         const label = document.getElementById('bw-label');
         if (!fill || !label) return;
+        const block = fill.parentElement.parentElement; // fill -> trough -> block
 
         if (bwVal < 0) {
             fill.style.width = '0%';
             label.textContent = 'BW: ?';
             label.classList.add('unknown');
+            if (block) block.style.display = 'none';
+            refreshEdgeRounding();
             return;
         }
 
@@ -313,15 +362,15 @@
             const pct = Math.max(0, Math.min(100, (bwVal / MAX_BW_KHZ) * 100));
             fill.style.width = pct + '%';
         } else {
-            // Static mode: no proportional bar, just a solid filled block.
             fill.style.width = '100%';
         }
 
         label.textContent = 'BW: ' + bwVal + ' kHz';
         label.classList.remove('unknown');
+        if (block) block.style.display = '';
+        refreshEdgeRounding();
     }
 
-    // ── Parsing sigRaw from main window.socket ────────────────────────────
     let lastFreq = null;
 
     function onMessage(event) {
@@ -335,6 +384,7 @@
             lastFreq = freq;
             peakCci.buf.fill(-1);
             peakAci.buf.fill(-1);
+            lastAci = -1; lastAciPeak = -1; lastBw = -1;
             if (ENABLE_BW_BLOCK) updateBw(-1);
         }
 
@@ -351,20 +401,26 @@
         const cci = (cciParsed >= 0 && cciParsed <= 100) ? cciParsed : -1;
         const aci = (aciParsed >= 0 && aciParsed <= 100) ? aciParsed : -1;
 
-        updateBar('cci-fill', 'cci-label', 'CCI', cci, pushSample(peakCci, cci));
-        updateBar('aci-fill', 'aci-label', 'ACI', aci, pushSample(peakAci, aci));
+        const cciPeak = pushSample(peakCci, cci);
+        const aciPeak = pushSample(peakAci, aci);
+        updateBar('cci-fill', 'cci-label', 'CCI', cci, cciPeak, false);
+        updateBar('aci-fill', 'aci-label', 'ACI', aci, aciPeak, true);
 
-        // BW: independent 3rd comma, does not affect cci/aci parsing above in any way
+        hasReceivedData = true;
+        lastCci = cci; lastCciPeak = cciPeak;
+        lastAci = aci; lastAciPeak = aciPeak;
+
+        // BW: 4th field
         if (ENABLE_BW_BLOCK) {
             const comma3 = comma2 === -1 ? -1 : sigRaw.indexOf(',', comma2 + 1);
             const bwParsed = comma3 === -1 ? NaN : parseInt(sigRaw.slice(comma3 + 1), 10);
             const bw = (bwParsed >= 0) ? bwParsed : -1;
             updateBw(bw);
+            lastBw = bw;
         }
     }
 
-    // Store reference to the socket instance we attached to.
-    // If window.socket is replaced with a new object (reconnect), we reattach.
+    // Reattach if window.socket is replaced (reconnect)
     let attachedSocket = null;
 
     function attachSocket() {
